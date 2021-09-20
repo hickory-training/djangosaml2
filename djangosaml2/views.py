@@ -57,6 +57,8 @@ from .utils import (add_idp_hinting, available_idps, get_custom_setting,
                     get_fallback_login_redirect_url,
                     get_idp_sso_supported_bindings, get_location,
                     validate_referral_url)
+from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import datetime, timedelta
 
 
 logger = logging.getLogger('djangosaml2')
@@ -526,7 +528,7 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
             return self.handle_acs_failure(request, exception=PermissionDenied('No user could be authenticated.'),
                                            session_info=session_info)
 
-        auth.login(self.request, user)
+        refresh = RefreshToken.for_user(user)
         _set_subject_id(request.saml_session, session_info['name_id'])
         logger.debug("User %s authenticated via SSO.", user)
 
@@ -537,10 +539,24 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
         custom_redirect_url = self.custom_redirect(
             user, relay_state, session_info)
         if custom_redirect_url:
-            return HttpResponseRedirect(custom_redirect_url)
+            response = HttpResponseRedirect(custom_redirect_url)
+            response.set_cookie(
+                settings.AUTH_COOKIE, str(refresh.access_token),
+                httponly=True,
+                secure=True,
+                expires=datetime.utcnow() + settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME'),
+            )
+            return response
         relay_state = validate_referral_url(request, relay_state)
         logger.debug('Redirecting to the RelayState: %s', relay_state)
-        return HttpResponseRedirect(relay_state)
+        response = HttpResponseRedirect(relay_state)
+        response.set_cookie(
+            settings.AUTH_COOKIE, str(refresh.access_token),
+            httponly=True,
+            secure=True,
+            expires=datetime.utcnow() + settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME'),
+        )
+        return response
 
     def post_login_hook(self, request: HttpRequest, user: settings.AUTH_USER_MODEL, session_info: dict) -> None:
         """ If desired, a hook to add logic after a user has succesfully logged in.
