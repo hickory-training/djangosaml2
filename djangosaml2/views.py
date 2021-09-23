@@ -433,11 +433,14 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
             'SAML_CREATE_UNKNOWN_USER', True)
         conf = self.get_sp_config(request)
 
-        identity_cache = IdentityCache(request.saml_session)
-        client = Saml2Client(conf, identity_cache=identity_cache)
-        oq_cache = OutstandingQueriesCache(request.saml_session)
-        oq_cache.sync()
-        outstanding_queries = oq_cache.outstanding_queries()
+        # identity_cache = IdentityCache(request.saml_session)
+        # client = Saml2Client(conf, identity_cache=identity_cache)
+        # oq_cache = OutstandingQueriesCache(request.saml_session)
+        # oq_cache.sync()
+        # outstanding_queries = oq_cache.outstanding_queries()
+
+        client = Saml2Client(conf, identity_cache=IdentityCache(request.session))
+        oq_cache = OutstandingQueriesCache(request.session)
 
         _exception = None
         try:
@@ -529,7 +532,8 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
                                            session_info=session_info)
 
         refresh = RefreshToken.for_user(user)
-        _set_subject_id(request.saml_session, session_info['name_id'])
+        # _set_subject_id(request.saml_session, session_info['name_id'])
+        _set_subject_id(request.session, session_info['name_id'])
         logger.debug("User %s authenticated via SSO.", user)
 
         self.post_login_hook(request, user, session_info)
