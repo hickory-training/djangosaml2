@@ -441,6 +441,7 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
 
         client = Saml2Client(conf, identity_cache=IdentityCache(request.session))
         oq_cache = OutstandingQueriesCache(request.session)
+        outstanding_queries = oq_cache.outstanding_queries()
 
         _exception = None
         try:
